@@ -169,9 +169,14 @@ class BoundingBox:
             else:
                 return self.OUTSIDE
 
-    def draw(self, ax: Axes, c: str = "k", lw: int = 1, **kwargs) -> None:
+    def draw(self, ax: Axes) -> None:
         box = patches.Rectangle(
-            (self.west, self.north), 40, 30, linewidth=1, edgecolor="r", facecolor="r"
+            (self.west, self.south),
+            self.width,
+            self.height,
+            linewidth=1,
+            edgecolor="r",
+            facecolor="r",
         )
         ax.add_patch(box)
 
@@ -199,19 +204,20 @@ class PolygonQuadTree:
             self.isColored = position == self.boundBox.INSIDE
 
     def __divide(self, polygon: Polygon):
-        new_width = self.boundBox.width / 2
-        new_height = self.boundBox.height / 2
+        """ """
+        newWidth = self.boundBox.width / 2
+        newHeight = self.boundBox.height / 2
         self.children = []
 
         for i in range(4):
             child = PolygonQuadTree(
                 BoundingBox(
                     Point(
-                        self.boundBox.center.lon + pow(-1, i & 1) * new_width / 2,
-                        self.boundBox.center.lat + pow(-1, i >> 1) * new_height / 2,
+                        self.boundBox.center.lon + pow(-1, i & 1) * newWidth / 2,
+                        self.boundBox.center.lat + pow(-1, i >> 1) * newHeight / 2,
                     ),
-                    new_width,
-                    new_height,
+                    newWidth,
+                    newHeight,
                 )
             )
             child.insertPolygon(polygon)
@@ -221,4 +227,5 @@ class PolygonQuadTree:
         if self.isColored:
             self.boundBox.draw(ax)
         if self.children is not None:
-            [child.draw(ax) for child in self.children]
+            for child in self.children:
+                child.draw(ax)
