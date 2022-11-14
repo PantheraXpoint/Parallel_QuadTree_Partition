@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-import math
 from matplotlib.axes import Axes
 
 
