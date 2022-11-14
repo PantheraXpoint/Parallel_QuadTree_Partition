@@ -201,6 +201,7 @@ class PolygonQuadTree:
     def __divide(self, polygon: Polygon):
         new_width = self.boundBox.width / 2
         new_height = self.boundBox.height / 2
+        self.children = []
 
         for i in range(4):
             child = PolygonQuadTree(
