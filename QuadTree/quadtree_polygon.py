@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from matplotlib.axes import Axes
 import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
 
 
 class Point:
@@ -69,21 +71,23 @@ class Polygon:
         o3 = self.__orientation(p2, q2, p1)
         o4 = self.__orientation(p2, q2, q1)
         # General case
+        if (o1 == 0 or o2 == 0 or o3 == 0 or o4 == 0):
+            return False
         if (o1 != o2) and (o3 != o4):
             return True
         # Special Cases
         # p1 , q1 and p2 are collinear and p2 lies on segment p1q1
-        if (o1 == 0) and self.__onSegment(p1, p2, q1):
-            return True
-        # p1 , q1 and q2 are collinear and q2 lies on segment p1q1
-        if (o2 == 0) and self.__onSegment(p1, q2, q1):
-            return True
-        # p2 , q2 and p1 are collinear and p1 lies on segment p2q2
-        if (o3 == 0) and self.__onSegment(p2, p1, q2):
-            return True
-        # p2 , q2 and q1 are collinear and q1 lies on segment p2q2
-        if (o4 == 0) and self.__onSegment(p2, q1, q2):
-            return True
+        # if (o1 == 0) and self.__onSegment(p1, p2, q1):
+        #     return True
+        # # p1 , q1 and q2 are collinear and q2 lies on segment p1q1
+        # if (o2 == 0) and self.__onSegment(p1, q2, q1):
+        #     return True
+        # # p2 , q2 and p1 are collinear and p1 lies on segment p2q2
+        # if (o3 == 0) and self.__onSegment(p2, p1, q2):
+        #     return True
+        # # p2 , q2 and q1 are collinear and q1 lies on segment p2q2
+        # if (o4 == 0) and self.__onSegment(p2, q1, q2):
+        #     return True
         # If none of the cases
         return False
 
@@ -182,7 +186,7 @@ class BoundingBox:
 
 
 class PolygonQuadTree:
-    DIVISION_UNIT = 0.5  # smallest width of a node
+    DIVISION_UNIT = 0.1  # smallest width of a node
 
     def __init__(self, boundBox: BoundingBox) -> None:
         self.boundBox: BoundingBox = boundBox
@@ -222,6 +226,7 @@ class PolygonQuadTree:
             )
             child.insertPolygon(polygon)
             self.children.append(child)
+            
 
     def draw(self, ax: Axes) -> None:
         if self.isColored:
@@ -229,3 +234,40 @@ class PolygonQuadTree:
         if self.children is not None:
             for child in self.children:
                 child.draw(ax)
+
+DPI = 72  # dots (pixels) per inch
+
+width, height = 360, 180
+
+A = Point(10,10)
+B= Point(90,10)
+C= Point(90,90)
+D= Point(10,90)
+
+listP = []
+listP.append(A)
+listP.append(B)
+listP.append(C)
+listP.append(D)
+
+center = Point(60,60)
+testBB = BoundingBox(center,120,120)
+testQT = PolygonQuadTree(testBB)
+testPoly = Polygon(listP)
+
+testQT.insertPolygon(testPoly)
+
+
+# draw rectangles
+fig = plt.figure(
+    figsize=(700 / DPI, 500 / DPI), dpi=DPI
+)  # each figure has to have w=700px and h=500px
+ax = plt.subplot()
+ax.set_xlim(0, width)  # The right limit of x axis is 360
+ax.set_ylim(0, height)  # The upper limit of y axis is 180
+testQT.draw(ax)
+
+
+plt.tight_layout()
+plt.savefig("search-quadtree.png", dpi=72)
+plt.show()
