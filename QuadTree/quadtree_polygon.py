@@ -121,7 +121,8 @@ class Polygon:
         return cnt
 
     def containsPoint(self, p: Point) -> bool:
-        return self.numIntersect(p, Point(self.maxLon + 1, p.lat)) % 2 == 1
+        # return self.numIntersect(p, Point(self.maxLon + 1, p.lat)) % 2 == 0
+        return self.numIntersect(p, Point(300, p.lat)) % 2 == 1
 
 
 class BoundingBox:
@@ -143,7 +144,7 @@ class BoundingBox:
         Returns true if the bounding box contains point
         """
         return (point is not None) and (
-            self.west <= point.lon < self.east and self.north <= point.lat < self.south
+            self.west < point.lon < self.east and self.north < point.lat < self.south
         )
 
     def positionVsPolygon(self, polygon: Polygon) -> int:
@@ -175,10 +176,10 @@ class BoundingBox:
 
     def draw(self, ax: Axes) -> None:
         box = patches.Rectangle(
-            (self.west, self.south),
+            (self.west, self.north),
             self.width,
             self.height,
-            linewidth=1,
+            linewidth=0.1,
             edgecolor="r",
             facecolor="r",
         )
@@ -186,7 +187,7 @@ class BoundingBox:
 
 
 class PolygonQuadTree:
-    DIVISION_UNIT = 0.1  # smallest width of a node
+    DIVISION_UNIT = 1  # smallest width of a node
 
     def __init__(self, boundBox: BoundingBox) -> None:
         self.boundBox: BoundingBox = boundBox
@@ -217,8 +218,8 @@ class PolygonQuadTree:
             child = PolygonQuadTree(
                 BoundingBox(
                     Point(
-                        self.boundBox.center.lon + pow(-1, i & 1) * newWidth / 2,
-                        self.boundBox.center.lat + pow(-1, i >> 1) * newHeight / 2,
+                        self.boundBox.center.lon + pow(-1, i & 1) * newWidth/2,
+                        self.boundBox.center.lat + pow(-1, i >> 1) * newHeight/2,
                     ),
                     newWidth,
                     newHeight,
@@ -239,19 +240,33 @@ DPI = 72  # dots (pixels) per inch
 
 width, height = 360, 180
 
-A = Point(10,10)
-B= Point(90,10)
-C= Point(90,90)
-D= Point(10,90)
+A=Point(20,40)
+B=Point(39,96)
+C=Point(71,68)
+D=Point(99,115)
+E=Point(120,60)
+F=Point(75,53)
+G=Point(115,24)
+H=Point(7,4)
+I=Point(40,20)
+J=Point(3,4)
+K=Point(7,32)
 
 listP = []
 listP.append(A)
 listP.append(B)
 listP.append(C)
 listP.append(D)
+listP.append(E)
+listP.append(F)
+listP.append(G)
+listP.append(H)
+listP.append(I)
+listP.append(J)
+listP.append(K)
 
-center = Point(60,60)
-testBB = BoundingBox(center,120,120)
+center = Point(64,64)
+testBB = BoundingBox(center,128,128)
 testQT = PolygonQuadTree(testBB)
 testPoly = Polygon(listP)
 
