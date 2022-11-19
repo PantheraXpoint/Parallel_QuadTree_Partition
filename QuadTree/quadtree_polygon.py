@@ -91,6 +91,36 @@ class Polygon:
         # If none of the cases
         return False
 
+    def __doIntersectv2(self, p1: Point, q1: Point, p2: Point, q2: Point) -> bool:
+        """
+        The function that returns true if
+        the line segment 'p1q1' and 'p2q2' intersect.
+        """
+        # Find the 4 orientations required for
+        # the general and special cases
+        o1 = self.__orientation(p1, q1, p2)
+        o2 = self.__orientation(p1, q1, q2)
+        o3 = self.__orientation(p2, q2, p1)
+        o4 = self.__orientation(p2, q2, q1)
+        # General case
+        if (o1 != o2) and (o3 != o4):
+            return True
+        # Special Cases
+        # p1 , q1 and p2 are collinear and p2 lies on segment p1q1
+        if (o1 == 0) and self.__onSegment(p1, p2, q1):
+            return True
+        # p1 , q1 and q2 are collinear and q2 lies on segment p1q1
+        if (o2 == 0) and self.__onSegment(p1, q2, q1):
+            return True
+        # p2 , q2 and p1 are collinear and p1 lies on segment p2q2
+        if (o3 == 0) and self.__onSegment(p2, p1, q2):
+            return True
+        # p2 , q2 and q1 are collinear and q1 lies on segment p2q2
+        if (o4 == 0) and self.__onSegment(p2, q1, q2):
+            return True
+        # If none of the cases
+        return False
+
     def intersectLine(self, p0: Point, p1: Point) -> bool:
         """
         Returns true if the line segment intersects with
@@ -116,13 +146,16 @@ class Polygon:
         for i in range(len(self.points)):
             e0 = self.points[i]
             e1 = self.points[(i + 1) % len(self.points)]
-            if self.__doIntersect(p0, p1, e0, e1):
+            if self.__doIntersectv2(p0, p1, e0, e1):
                 cnt += 1
         return cnt
 
     def containsPoint(self, p: Point) -> bool:
-        # return self.numIntersect(p, Point(self.maxLon + 1, p.lat)) % 2 == 0
-        return self.numIntersect(p, Point(300, p.lat)) % 2 == 1
+        right = self.numIntersect(p, Point(300, p.lat))
+        left = self.numIntersect(Point(-1, p.lat),p)
+        up = self.numIntersect(p, Point(p.lon, 180))
+        down = self.numIntersect(p, Point(p.lon, -1))
+        return right and left and up and down
 
 
 class BoundingBox:
@@ -240,17 +273,35 @@ DPI = 72  # dots (pixels) per inch
 
 width, height = 360, 180
 
-A=Point(20,40)
-B=Point(39,96)
-C=Point(71,68)
-D=Point(99,115)
-E=Point(120,60)
-F=Point(75,53)
-G=Point(115,24)
-H=Point(7,4)
-I=Point(40,20)
-J=Point(3,4)
-K=Point(7,32)
+#test01
+# A=Point(20,40)
+# B=Point(39,96)
+# C=Point(71,68)
+# D=Point(99,115)
+# E=Point(120,60)
+# F=Point(75,53)
+# G=Point(115,24)
+# H=Point(7,4)
+# I=Point(40,20)
+# J=Point(3,4)
+# K=Point(7,32)
+
+#test02
+A=Point(11,20)
+B=Point(23,47)
+C=Point(7,38)
+D=Point(40,111)
+E=Point(33,79)
+F=Point(80,120)
+G=Point(120,80)
+H=Point(40,60)
+I=Point(62,53)
+J=Point(119,52)
+K=Point(120,20)
+L=Point(79,8)
+M=Point(37,49)
+
+
 
 listP = []
 listP.append(A)
@@ -264,6 +315,8 @@ listP.append(H)
 listP.append(I)
 listP.append(J)
 listP.append(K)
+listP.append(L)
+listP.append(M)
 
 center = Point(64,64)
 testBB = BoundingBox(center,128,128)
