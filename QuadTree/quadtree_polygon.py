@@ -2,9 +2,7 @@
 from matplotlib.axes import Axes
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
-from matplotlib import gridspec
 import geopandas as gpd
-import shapely.wkt
 import re
 import math
 import time
@@ -24,26 +22,28 @@ class Polygon:
     CLOCKWISE = 1
     COUNTER_CLOCKWISE = 2
 
-    def __init__(self, file:str) -> None:
+    def __init__(self,inp,inputType = "file") -> None:
         """
         A polygon is instantiated using:
         points: list of points
         """
         self.points: list[Point] = []
-
-        region = gpd.read_file(file)
-        reg_shape = region['geometry'][0]
-        for pol in reg_shape.geoms:
-            for poi in pol.exterior.coords:
-                p = re.findall (r'([^(,)]+)(?!.*\()', str(poi))
-                self.points.append(Point(float(p[0]),float(p[1])))
-
-        
         self.maxLon = float("-inf")
         self.maxLat = float("-inf")
         self.minLon = float("inf")
         self.minLat = float("inf")
 
+        if inputType == "file":
+            region = gpd.read_file(inp)
+            reg_shape = region['geometry'][0]
+            for pol in reg_shape.geoms:
+                for poi in pol.exterior.coords:
+                    p = re.findall (r'([^(,)]+)(?!.*\()', str(poi))
+                    self.points.append(Point(float(p[0]),float(p[1])))
+
+        else:
+            self.points = inp
+        
         for point in self.points:
             if self.maxLon < point.lon:
                 self.maxLon = point.lon
@@ -101,21 +101,6 @@ class Polygon:
             return False
         if (o1 != o2) and (o3 != o4):
             return True
-        
-        """Special Cases
-        p1 , q1 and p2 are collinear and p2 lies on segment p1q1
-        if (o1 == 0) and self.__onSegment(p1, p2, q1):
-            return True
-        # p1 , q1 and q2 are collinear and q2 lies on segment p1q1
-        if (o2 == 0) and self.__onSegment(p1, q2, q1):
-            return True
-        # p2 , q2 and p1 are collinear and p1 lies on segment p2q2
-        if (o3 == 0) and self.__onSegment(p2, p1, q2):
-            return True
-        # p2 , q2 and q1 are collinear and q1 lies on segment p2q2
-        if (o4 == 0) and self.__onSegment(p2, q1, q2):
-            return True
-        If none of the cases"""
 
         return False
 
@@ -166,8 +151,7 @@ class Polygon:
 
     def numIntersect(self, p0: Point, p1: Point) -> int:
         """
-        Calculate the number of times a line segment intersects with
-        the edges of self
+        Check if there exist any intersection between polygon and a line segment
         p0: starting point of line segment
         p1: ending point of line segment
         """
@@ -178,9 +162,11 @@ class Polygon:
             e1 = self.points[(i + 1) % len(self.points)]
             if self.__doIntersectv2(p0, p1, e0, e1):
                 cnt += 1
+                return cnt
         return cnt
 
     def containsPoint(self, p: Point) -> bool:
+        # if polygon contains the input point
         right = self.numIntersect(p, Point(self.maxLon, p.lat))
         left = self.numIntersect(Point(-1, p.lat),p)
         up = self.numIntersect(p, Point(p.lon, self.maxLat))
@@ -250,7 +236,45 @@ class BoundingBox:
         )
         ax.add_patch(box)
 
+class BoxData:
+    def __init__(self) -> None: # init dictionary to write file
+        self.id = 0
+        self.boxes = {
+            "type" : "FeatureCollection",
+            "name" : "quadtree",
+            "crs" : {"type" : "name", "properties" : {"name" : "urn:ogc:def:crs:EPSG::3857"}},
+            "features" : []
+        }
 
+# append square into dictionary
+    def insertBox(self,west,north,east,south):
+        insertNode = { 
+                        "type": "Feature", 
+                        "properties": 
+                        { 
+                            "id": self.id, 
+                            "left": west, 
+                            "top": north, 
+                            "right": east, 
+                            "bottom": south 
+                        }, 
+                        "geometry": 
+                        { 
+                            "type": "Polygon", 
+                            "coordinates": [ [ [ west, north ], [ east, north ], [ east, south  ], [ west,south  ], [ west, north ] ] ] 
+                        } 
+                    }
+        self.id += 1
+        self.boxes["features"].append(insertNode)
+
+    def exportJSON(self):
+        writeDest = open('quadtree.geojson', 'w')
+        json.dump(self.boxes,writeDest,indent = 4)
+        writeDest.close()
+
+
+
+boxes = BoxData()
 class PolygonQuadTree:
     DIVISION_UNIT : float = 1000  # smallest width of a node
 
@@ -308,46 +332,12 @@ class PolygonQuadTree:
             )
             child.insertPolygon(polygon)
             self.children.append(child)
-            
-    def writeFile(self) -> None:
-
-        read = open('quadtree.geojson','r+')
-        read_grid = json.load(read)
-
-        numCells = len(read_grid['features'])
-        id = 0 if numCells == 0 else numCells
-
-        
-
-        insertNode = { 
-                        "type": "Feature", 
-                        "properties": 
-                        { 
-                            "id": id, 
-                            "left": self.boundBox.west, 
-                            "top": self.boundBox.north, 
-                            "right": self.boundBox.east, 
-                            "bottom": self.boundBox.south 
-                        }, 
-                        "geometry": 
-                        { 
-                            "type": "Polygon", 
-                            "coordinates": [ [ [ self.boundBox.west, self.boundBox.north ], [ self.boundBox.east, self.boundBox.north ], [ self.boundBox.east, self.boundBox.south  ], [ self.boundBox.west, self.boundBox.south  ], [ self.boundBox.west, self.boundBox.north ] ] ] 
-                        } 
-                    }
-
-
-        read_grid["features"].append(insertNode)
-        # Sets file's current position at offset.
-        read.seek(0)
-        # convert back to json.
-        json.dump(read_grid, read, indent = 4)
-        read.close()
+            # print(child.boundBox.center.lon, child.boundBox.center.lat,"\n")
 
     def draw(self, ax: Axes) -> None:
         if self.isColored:
             self.boundBox.draw(ax)
-            self.writeFile()
+            boxes.insertBox(self.boundBox.west, self.boundBox.north, self.boundBox.east, self.boundBox.south)
         if self.children is not None:
             for child in self.children:
                 child.draw(ax)
@@ -383,28 +373,17 @@ J=Point(119,52)
 K=Point(120,20)
 L=Point(79,8)
 M=Point(37,49)
+'''
 
 
+# listP = [A,B,C,D,E,F,G,H,I,J,K,L,M]
 
-listP = []
-listP.append(A)
-listP.append(B)
-listP.append(C)
-listP.append(D)
-listP.append(E)
-listP.append(F)
-listP.append(G)
-listP.append(H)
-listP.append(I)
-listP.append(J)
-listP.append(K)
-listP.append(L)
-listP.append(M)'''
 
 
 
 begin = time.time()
-testPoly = Polygon("HCM.geojson")
+testPoly = Polygon("SonLa.geojson")
+# testPoly = Polygon(listP)
 testQT = PolygonQuadTree()
 # parallel starts here
 size = testQT.initPolygon(testPoly)
@@ -426,6 +405,9 @@ testQT.draw(ax)
 plt.tight_layout()
 plt.savefig("search-quadtree.png", dpi=72)
 plt.show()
+
+boxes.exportJSON()
+
 
 
 
