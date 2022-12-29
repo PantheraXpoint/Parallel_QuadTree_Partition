@@ -11,8 +11,6 @@ import time
 import json
 
 
-
-
 class Point:
     def __init__(self, lon: float, lat: float) -> None:
         self.lon: float = lon
@@ -24,7 +22,7 @@ class Polygon:
     CLOCKWISE = 1
     COUNTER_CLOCKWISE = 2
 
-    def __init__(self, file:str) -> None:
+    def __init__(self, file: str) -> None:
         """
         A polygon is instantiated using:
         points: list of points
@@ -32,13 +30,12 @@ class Polygon:
         self.points: list[Point] = []
 
         region = gpd.read_file(file)
-        reg_shape = region['geometry'][0]
+        reg_shape = region["geometry"][0]
         for pol in reg_shape.geoms:
             for poi in pol.exterior.coords:
-                p = re.findall (r'([^(,)]+)(?!.*\()', str(poi))
-                self.points.append(Point(float(p[0]),float(p[1])))
+                p = re.findall(r"([^(,)]+)(?!.*\()", str(poi))
+                self.points.append(Point(float(p[0]), float(p[1])))
 
-        
         self.maxLon = float("-inf")
         self.maxLat = float("-inf")
         self.minLon = float("inf")
@@ -52,7 +49,7 @@ class Polygon:
             if self.minLon > point.lon:
                 self.minLon = point.lon
             if self.minLat > point.lat:
-                self.minLat = point.lat   
+                self.minLat = point.lat
 
     def __onSegment(self, p: Point, q: Point, r: Point) -> bool:
         if (
@@ -97,11 +94,11 @@ class Polygon:
         o3 = self.__orientation(p2, q2, p1)
         o4 = self.__orientation(p2, q2, q1)
         # General case
-        if (o1 == 0 or o2 == 0 or o3 == 0 or o4 == 0):
+        if o1 == 0 or o2 == 0 or o3 == 0 or o4 == 0:
             return False
         if (o1 != o2) and (o3 != o4):
             return True
-        
+
         """Special Cases
         p1 , q1 and p2 are collinear and p2 lies on segment p1q1
         if (o1 == 0) and self.__onSegment(p1, p2, q1):
@@ -182,12 +179,11 @@ class Polygon:
 
     def containsPoint(self, p: Point) -> bool:
         right = self.numIntersect(p, Point(self.maxLon, p.lat))
-        left = self.numIntersect(Point(-1, p.lat),p)
+        left = self.numIntersect(Point(-1, p.lat), p)
         up = self.numIntersect(p, Point(p.lon, self.maxLat))
         down = self.numIntersect(p, Point(p.lon, -1))
         # print(self.maxLat,self.maxLon)
         return right and left and up and down
-    
 
 
 class BoundingBox:
@@ -252,25 +248,29 @@ class BoundingBox:
 
 
 class PolygonQuadTree:
-    DIVISION_UNIT : float = 1000  # smallest width of a node
+    DIVISION_UNIT: float = 1000  # smallest width of a node
 
     def __init__(self, boundBox: BoundingBox = None) -> None:
         self.boundBox: BoundingBox = boundBox
         self.isColored: bool = False
         self.children: list["PolygonQuadTree"] = None
-        
-        
-    def initPolygon(self,polygon:Polygon):
-        treeLv = math.ceil(math.log2(max(polygon.maxLat - polygon.minLat,polygon.maxLon - polygon.minLon)/ self.DIVISION_UNIT))
-        size = self.DIVISION_UNIT * math.pow(2,treeLv)
+
+    def initPolygon(self, polygon: Polygon):
+        treeLv = math.ceil(
+            math.log2(
+                max(polygon.maxLat - polygon.minLat, polygon.maxLon - polygon.minLon)
+                / self.DIVISION_UNIT
+            )
+        )
+        size = self.DIVISION_UNIT * math.pow(2, treeLv)
         self.boundBox = BoundingBox(
-                    Point(
-                        polygon.minLon + size/2,
-                        polygon.minLat + size/2,
-                    ),
-                    size,
-                    size,
-                )
+            Point(
+                polygon.minLon + size / 2,
+                polygon.minLat + size / 2,
+            ),
+            size,
+            size,
+        )
         self.insertPolygon(polygon)
         return size
 
@@ -278,7 +278,7 @@ class PolygonQuadTree:
         """
         Insert new polygon into the root node of self
         """
-        
+
         position = self.boundBox.positionVsPolygon(polygon)
         if position == self.boundBox.PARTIAL_OVERLAP:
             if self.boundBox.width > self.DIVISION_UNIT:
@@ -299,8 +299,8 @@ class PolygonQuadTree:
             child = PolygonQuadTree(
                 BoundingBox(
                     Point(
-                        self.boundBox.center.lon + pow(-1, i & 1) * newWidth/2,
-                        self.boundBox.center.lat + pow(-1, i >> 1) * newHeight/2,
+                        self.boundBox.center.lon + pow(-1, i & 1) * newWidth / 2,
+                        self.boundBox.center.lat + pow(-1, i >> 1) * newHeight / 2,
                     ),
                     newWidth,
                     newHeight,
@@ -308,40 +308,43 @@ class PolygonQuadTree:
             )
             child.insertPolygon(polygon)
             self.children.append(child)
-            
+
     def writeFile(self) -> None:
 
-        read = open('quadtree.geojson','r+')
+        read = open("quadtree.geojson", "r+")
         read_grid = json.load(read)
 
-        numCells = len(read_grid['features'])
+        numCells = len(read_grid["features"])
         id = 0 if numCells == 0 else numCells
 
-        
-
-        insertNode = { 
-                        "type": "Feature", 
-                        "properties": 
-                        { 
-                            "id": id, 
-                            "left": self.boundBox.west, 
-                            "top": self.boundBox.north, 
-                            "right": self.boundBox.east, 
-                            "bottom": self.boundBox.south 
-                        }, 
-                        "geometry": 
-                        { 
-                            "type": "Polygon", 
-                            "coordinates": [ [ [ self.boundBox.west, self.boundBox.north ], [ self.boundBox.east, self.boundBox.north ], [ self.boundBox.east, self.boundBox.south  ], [ self.boundBox.west, self.boundBox.south  ], [ self.boundBox.west, self.boundBox.north ] ] ] 
-                        } 
-                    }
-
+        insertNode = {
+            "type": "Feature",
+            "properties": {
+                "id": id,
+                "left": self.boundBox.west,
+                "top": self.boundBox.north,
+                "right": self.boundBox.east,
+                "bottom": self.boundBox.south,
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [self.boundBox.west, self.boundBox.north],
+                        [self.boundBox.east, self.boundBox.north],
+                        [self.boundBox.east, self.boundBox.south],
+                        [self.boundBox.west, self.boundBox.south],
+                        [self.boundBox.west, self.boundBox.north],
+                    ]
+                ],
+            },
+        }
 
         read_grid["features"].append(insertNode)
         # Sets file's current position at offset.
         read.seek(0)
         # convert back to json.
-        json.dump(read_grid, read, indent = 4)
+        json.dump(read_grid, read, indent=4)
         read.close()
 
     def draw(self, ax: Axes) -> None:
@@ -352,10 +355,11 @@ class PolygonQuadTree:
             for child in self.children:
                 child.draw(ax)
 
+
 DPI = 72  # dots (pixels) per inch
 
 
-'''test01
+"""test01
 A=Point(20,40)
 B=Point(39,96)
 C=Point(71,68)
@@ -367,9 +371,9 @@ H=Point(7,4)
 I=Point(40,20)
 J=Point(3,4)
 K=Point(7,32)
-'''
+"""
 
-'''#test02
+"""#test02
 A=Point(11,20)
 B=Point(23,47)
 C=Point(7,38)
@@ -399,8 +403,7 @@ listP.append(I)
 listP.append(J)
 listP.append(K)
 listP.append(L)
-listP.append(M)'''
-
+listP.append(M)"""
 
 
 begin = time.time()
@@ -422,13 +425,6 @@ ax.set_ylim(testPoly.minLat, testPoly.minLat + size)  # The upper limit of y axi
 testQT.draw(ax)
 
 
-
 plt.tight_layout()
 plt.savefig("search-quadtree.png", dpi=72)
 plt.show()
-
-
-
-
-
-
