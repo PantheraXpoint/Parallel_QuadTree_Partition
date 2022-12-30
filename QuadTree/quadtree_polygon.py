@@ -134,30 +134,29 @@ class Polygon:
                 return True
         return False
 
-    def touchIntersect(self, p0: Point, p1: Point) -> bool:
+    def touchIntersect(self, p0: Point, p1: Point) -> int:
         """
         Check if there exist any intersection between polygon and a line segment
         p0: starting point of line segment
         p1: ending point of line segment
         """
         # need parallel
+        cnt = 0
         for i in range(len(self.points)):
             e0 = self.points[i]
             e1 = self.points[(i + 1) % len(self.points)]
             # if self.__onSegment(p0,e0,p1) and self.__onSegment(p0,e1,p1):
             #     return True
             if self.__doTouch(p0, p1, e0, e1) or self.__doIntersect(p0, p1, e0, e1):
-                return True
-                
-            
-        return False
+                cnt += 1
+        return cnt
 
     def containsPoint(self, p: Point) -> bool:
         # if polygon contains the input point
-        right = self.touchIntersect(p, Point(self.maxLon, p.lat))
-        left = self.touchIntersect(Point(-1, p.lat),p)
-        up = self.touchIntersect(p, Point(p.lon, self.maxLat))
-        down = self.touchIntersect(p, Point(p.lon, -1))
+        right = self.touchIntersect(p, Point(self.maxLon, p.lat)) % 2 != 0
+        left = self.touchIntersect(Point(-1, p.lat),p) % 2 != 0
+        up = self.touchIntersect(p, Point(p.lon, self.maxLat)) % 2 != 0
+        down = self.touchIntersect(p, Point(p.lon, -1)) % 2 != 0
         # print(self.maxLat,self.maxLon)
         return right and left and up and down
     
