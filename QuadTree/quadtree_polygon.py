@@ -43,7 +43,7 @@ class Polygon:
 
         else:
             self.points = inp
-        
+
         for point in self.points:
             if self.maxLon < point.lon:
                 self.maxLon = point.lon
@@ -97,39 +97,24 @@ class Polygon:
         o3 = self.__orientation(p2, q2, p1)
         o4 = self.__orientation(p2, q2, q1)
         # General case
+        # remove any cases of overlap and touch of 
         if (o1 == 0 or o2 == 0 or o3 == 0 or o4 == 0):
             return False
+
         if (o1 != o2) and (o3 != o4):
             return True
 
+        # If none of the cases
         return False
 
-    def __doIntersectv2(self, p1: Point, q1: Point, p2: Point, q2: Point) -> bool:
+    def __doTouch(self, p1: Point, q1: Point, p2: Point, q2: Point) -> int:
         """
         The function that returns true if
         the line segment 'p1q1' and 'p2q2' intersect.
         """
-        # Find the 4 orientations required for
-        # the general and special cases
-        o1 = self.__orientation(p1, q1, p2)
         o2 = self.__orientation(p1, q1, q2)
-        o3 = self.__orientation(p2, q2, p1)
-        o4 = self.__orientation(p2, q2, q1)
-        # General case
-        if (o1 != o2) and (o3 != o4):
-            return True
-        # Special Cases
-        # p1 , q1 and p2 are collinear and p2 lies on segment p1q1
-        if (o1 == 0) and self.__onSegment(p1, p2, q1):
-            return True
         # p1 , q1 and q2 are collinear and q2 lies on segment p1q1
         if (o2 == 0) and self.__onSegment(p1, q2, q1):
-            return True
-        # p2 , q2 and p1 are collinear and p1 lies on segment p2q2
-        if (o3 == 0) and self.__onSegment(p2, p1, q2):
-            return True
-        # p2 , q2 and q1 are collinear and q1 lies on segment p2q2
-        if (o4 == 0) and self.__onSegment(p2, q1, q2):
             return True
         # If none of the cases
         return False
@@ -149,28 +134,30 @@ class Polygon:
                 return True
         return False
 
-    def numIntersect(self, p0: Point, p1: Point) -> int:
+    def touchIntersect(self, p0: Point, p1: Point) -> bool:
         """
         Check if there exist any intersection between polygon and a line segment
         p0: starting point of line segment
         p1: ending point of line segment
         """
-        cnt = 0
         # need parallel
         for i in range(len(self.points)):
             e0 = self.points[i]
             e1 = self.points[(i + 1) % len(self.points)]
-            if self.__doIntersectv2(p0, p1, e0, e1):
-                cnt += 1
-                return cnt
-        return cnt
+            # if self.__onSegment(p0,e0,p1) and self.__onSegment(p0,e1,p1):
+            #     return True
+            if self.__doTouch(p0, p1, e0, e1) or self.__doIntersect(p0, p1, e0, e1):
+                return True
+                
+            
+        return False
 
     def containsPoint(self, p: Point) -> bool:
         # if polygon contains the input point
-        right = self.numIntersect(p, Point(self.maxLon, p.lat))
-        left = self.numIntersect(Point(-1, p.lat),p)
-        up = self.numIntersect(p, Point(p.lon, self.maxLat))
-        down = self.numIntersect(p, Point(p.lon, -1))
+        right = self.touchIntersect(p, Point(self.maxLon, p.lat))
+        left = self.touchIntersect(Point(-1, p.lat),p)
+        up = self.touchIntersect(p, Point(p.lon, self.maxLat))
+        down = self.touchIntersect(p, Point(p.lon, -1))
         # print(self.maxLat,self.maxLon)
         return right and left and up and down
     
@@ -345,35 +332,39 @@ class PolygonQuadTree:
 DPI = 72  # dots (pixels) per inch
 
 
-'''test01
-A=Point(20,40)
-B=Point(39,96)
-C=Point(71,68)
-D=Point(99,115)
-E=Point(120,60)
-F=Point(75,53)
-G=Point(115,24)
-H=Point(7,4)
-I=Point(40,20)
-J=Point(3,4)
-K=Point(7,32)
-'''
+#test01
 
-'''#test02
-A=Point(11,20)
-B=Point(23,47)
-C=Point(7,38)
-D=Point(40,111)
-E=Point(33,79)
-F=Point(80,120)
-G=Point(120,80)
-H=Point(40,60)
-I=Point(62,53)
-J=Point(119,52)
-K=Point(120,20)
-L=Point(79,8)
-M=Point(37,49)
-'''
+# A=Point(20,40)
+# B=Point(39,96)
+# C=Point(71,68)
+# D=Point(99,115)
+# E=Point(120,60)
+# F=Point(75,53)
+# G=Point(115,24)
+# H=Point(7,4)
+# I=Point(40,20)
+# J=Point(3,4)
+# K=Point(7,32)
+
+
+#test02
+
+# A=Point(11,20)
+# B=Point(23,47)
+# C=Point(7,38)
+# D=Point(40,111)
+# E=Point(33,79)
+# F=Point(80,120)
+# G=Point(120,80)
+# H=Point(40,60)
+# I=Point(62,53)
+# J=Point(119,52)
+# K=Point(120,20)
+# L=Point(79,8)
+# M=Point(37,49)
+
+
+
 
 
 # listP = [A,B,C,D,E,F,G,H,I,J,K,L,M]
@@ -382,8 +373,8 @@ M=Point(37,49)
 
 
 begin = time.time()
-testPoly = Polygon("SonLa.geojson")
-# testPoly = Polygon(listP)
+testPoly = Polygon("HCM.geojson","file")
+# testPoly = Polygon(listP,"list")
 testQT = PolygonQuadTree()
 # parallel starts here
 size = testQT.initPolygon(testPoly)
@@ -409,6 +400,80 @@ plt.show()
 boxes.exportJSON()
 
 
+
+# def onSegment(p: Point, q: Point, r: Point) -> bool:
+#         if (
+#             (q.lon <= max(p.lon, r.lon))
+#             and (q.lon >= min(p.lon, r.lon))
+#             and (q.lat <= max(p.lat, r.lat))
+#             and (q.lat >= min(p.lat, r.lat))
+#         ):
+#             return True
+#         return False
+
+
+# def orientation(p: Point, q: Point, r: Point) -> int:
+#         """
+#         Find the orientation of an ordered triplet (p,q,r)
+#         function returns the following values:
+#         0 : Collinear points
+#         1 : Clockwise points
+#         2 : Counterclockwise
+
+#         See https://www.geeksforgeeks.org/orientation-3-ordered-points/amp/
+#         for details of below formula.
+#         """
+#         val = (float(q.lat - p.lat) * (r.lon - q.lon)) - (
+#             float(q.lon - p.lon) * (r.lat - q.lat)
+#         )
+#         if val > 0:
+#             return 1
+#         elif val < 0:
+#             return 2
+#         else:
+#             return 0
+
+# def doIntersect(p1: Point, q1: Point, p2: Point, q2: Point) -> bool:
+#     """
+#     The function that returns true if
+#     the line segment 'p1q1' and 'p2q2' intersect.
+#     """
+#     # Find the 4 orientations required for
+#     # the general and special cases
+#     o1 = orientation(p1, q1, p2)
+#     o2 = orientation(p1, q1, q2)
+#     o3 = orientation(p2, q2, p1)
+#     o4 = orientation(p2, q2, q1)
+#     print(o1,o2,o3,o4)
+#     # General case
+#     if (o1 == 0 or o2 == 0 or o3 == 0 or o4 == 0):
+#         return False
+#     if (o1 != o2) and (o3 != o4):
+#         return True
+
+#     # Special Cases
+#     # p1 , q1 and p2 are collinear and p2 lies on segment p1q1
+#     # if (o1 == 0) and onSegment(p1, p2, q1):
+#     #     return True
+#     # # p1 , q1 and q2 are collinear and q2 lies on segment p1q1
+#     # if (o2 == 0) and onSegment(p1, q2, q1):
+#     #     return True
+#     # # p2 , q2 and p1 are collinear and p1 lies on segment p2q2
+#     # if (o3 == 0) and onSegment(p2, p1, q2):
+#     #     return True
+#     # # p2 , q2 and q1 are collinear and q1 lies on segment p2q2
+#     # if (o4 == 0) and onSegment(p2, q1, q2):
+#     #     return True
+#     # If none of the cases
+
+#     return False
+
+# A=Point(2,2)
+# B=Point(4,2)
+# C=Point(1,2)
+# # D=Point(3,1)
+
+# print(onSegment(A,C,B))
 
 
 
