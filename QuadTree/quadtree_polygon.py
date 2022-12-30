@@ -22,6 +22,11 @@ class Polygon:
     CLOCKWISE = 1
     COUNTER_CLOCKWISE = 2
 
+    # how two line segments intersect
+    LINES_CROSS = 3             # two line segments completely cross each other
+    LINES_TOUCH = 4             # starting/ending point of one line segment lies on other line segment
+    LINES_NOT_INTERSECT = 5     # two line segments do not intersect with each other
+
     def __init__(self,inp,inputType = "file") -> None:
         """
         A polygon is instantiated using:
@@ -43,6 +48,8 @@ class Polygon:
 
         else:
             self.points = inp
+
+        self.numPoints = len(self.points)
 
         for point in self.points:
             if self.maxLon < point.lon:
@@ -85,44 +92,35 @@ class Polygon:
         else:
             return self.COLLINEAR
 
-    def __doIntersect(self, p1: Point, q1: Point, p2: Point, q2: Point) -> bool:
+
+    def __intersect(self, p1: Point, q1: Point, p2: Point, q2: Point) -> int:
         """
-        The function that returns true if
-        the line segment 'p1q1' and 'p2q2' intersect.
+        The function returns how two line segments intersect with each other.
+        There are 3 cases: see LINEs_CROSS, LINES_TOUCH, LINES_NOT_INTERSECT
         """
-        # Find the 4 orientations required for
-        # the general and special cases
         o1 = self.__orientation(p1, q1, p2)
         o2 = self.__orientation(p1, q1, q2)
         o3 = self.__orientation(p2, q2, p1)
         o4 = self.__orientation(p2, q2, q1)
-        # General case
-        # remove any cases of overlap and touch of 
-        if (o1 == 0 or o2 == 0 or o3 == 0 or o4 == 0):
-            return False
 
+        # two line segments completely cross each other
         if (o1 != o2) and (o3 != o4):
-            return True
+            return self.LINES_CROSS
 
-        # If none of the cases
-        return False
+        # cases in which two line segments "touch" each other
+        # p2 lies on segment p1q1
+        if ((o1 == 0) and self.__onSegment(p1, p2, q1)) or \
+            ((o2 == 0) and self.__onSegment(p1, q2, q1)) or \
+            ((o3 == 0) and self.__onSegment(p2, p1, q2)) or \
+            ((o4 == 0) and self.__onSegment(p2, q1, q2)):
+            return self.LINES_TOUCH
 
-    def __doTouch(self, p1: Point, q1: Point, p2: Point, q2: Point) -> int:
-        """
-        The function that returns true if
-        the line segment 'p1q1' and 'p2q2' intersect.
-        """
-        o2 = self.__orientation(p1, q1, q2)
-        # p1 , q1 and q2 are collinear and q2 lies on segment p1q1
-        if (o2 == 0) and self.__onSegment(p1, q2, q1):
-            return True
-        # If none of the cases
-        return False
+        return self.LINES_NOT_INTERSECT
 
-    def intersectLine(self, p0: Point, p1: Point) -> bool:
+
+    def crossLine(self, p0: Point, p1: Point) -> bool:
         """
-        Returns true if the line segment intersects with
-        the edges of self
+        Returns true if line segment p0p1 crosses with any edge of the polygon
         p0: starting point of line segment
         p1: ending point of line segment
         """
@@ -130,36 +128,55 @@ class Polygon:
         for idx in range(len(self.points)):
             e0 = self.points[idx]
             e1 = self.points[(idx + 1) % len(self.points)]
-            if self.__doIntersect(p0, p1, e0, e1):
+            if self.__intersect(p0, p1, e0, e1) == self.LINES_CROSS:
                 return True
         return False
 
-    def touchIntersect(self, p0: Point, p1: Point) -> int:
+
+    def numIntersect(self, p0: Point, p1: Point) -> int:
         """
-        Check if there exist any intersection between polygon and a line segment
-        p0: starting point of line segment
-        p1: ending point of line segment
+        Return number of intersections between the line segment p0p1
+        and the edges of self (polygon)
         """
         # need parallel
         cnt = 0
-        for i in range(len(self.points)):
+        i = 0
+
+        while i < self.numPoints:
             e0 = self.points[i]
-            e1 = self.points[(i + 1) % len(self.points)]
-            # if self.__onSegment(p0,e0,p1) and self.__onSegment(p0,e1,p1):
-            #     return True
-            if self.__doTouch(p0, p1, e0, e1) or self.__doIntersect(p0, p1, e0, e1):
+            e1 = self.points[(i + 1) % self.numPoints]
+            intersect = self.__intersect(e0, e1, p0, p1)
+
+            if intersect == self.LINES_CROSS:
                 cnt += 1
+            elif intersect == self.LINES_TOUCH:
+                e2 = self.points[(i + 2) % self.numPoints]
+                cnt += 1
+
+                if self.__orientation(p0, p1, e1) == 0 and self.__intersect(e0, e2, p0, p1) != self.LINES_NOT_INTERSECT:
+                    i += 1
+                
+            i += 1
+
         return cnt
 
+
     def containsPoint(self, p: Point) -> bool:
-        # if polygon contains the input point
-        right = self.touchIntersect(p, Point(self.maxLon, p.lat)) % 2 != 0
-        left = self.touchIntersect(Point(-1, p.lat),p) % 2 != 0
-        up = self.touchIntersect(p, Point(p.lon, self.maxLat)) % 2 != 0
-        down = self.touchIntersect(p, Point(p.lon, -1)) % 2 != 0
-        # print(self.maxLat,self.maxLon)
-        return right and left and up and down
-    
+        """
+        Return true if the polygon contains the point p
+        """
+        right = self.numIntersect(p, Point(self.maxLon + 1, p.lat))
+        left = self.numIntersect(Point(-1, p.lat),p)
+        up = self.numIntersect(p, Point(p.lon, self.maxLat + 1))
+        down = self.numIntersect(p, Point(p.lon, -1))
+        
+        res1 = right and left and up and down
+        res2 = (right & 1) or (left & 1) or (up & 1) or (down & 1)
+
+        if res1 != res2:
+            print(right, left, up, down, res1)
+
+        return (right & 1) or (left & 1) or (up & 1) or (down & 1)
 
 
 class BoundingBox:
@@ -191,16 +208,16 @@ class BoundingBox:
         # bounding box intersects partially with the polygon
         if (
             any([self.containsPoint(point) for point in polygon.points])
-            or polygon.intersectLine(
+            or polygon.crossLine(
                 Point(self.east, self.north), Point(self.west, self.north)
             )
-            or polygon.intersectLine(
+            or polygon.crossLine(
                 Point(self.west, self.north), Point(self.west, self.south)
             )
-            or polygon.intersectLine(
+            or polygon.crossLine(
                 Point(self.west, self.south), Point(self.east, self.south)
             )
-            or polygon.intersectLine(
+            or polygon.crossLine(
                 Point(self.east, self.south), Point(self.east, self.north)
             )
         ):
@@ -262,7 +279,7 @@ class BoxData:
 
 boxes = BoxData()
 class PolygonQuadTree:
-    DIVISION_UNIT : float = 1000  # smallest width of a node
+    DIVISION_UNIT : float = 1  # smallest width of a node
 
     def __init__(self, boundBox: BoundingBox = None) -> None:
         self.boundBox: BoundingBox = boundBox
@@ -348,32 +365,27 @@ DPI = 72  # dots (pixels) per inch
 
 #test02
 
-# A=Point(11,20)
-# B=Point(23,47)
-# C=Point(7,38)
-# D=Point(40,111)
-# E=Point(33,79)
-# F=Point(80,120)
-# G=Point(120,80)
-# H=Point(40,60)
-# I=Point(62,53)
-# J=Point(119,52)
-# K=Point(120,20)
-# L=Point(79,8)
-# M=Point(37,49)
+A=Point(11,20)
+B=Point(23,47)
+C=Point(7,38)
+D=Point(40,111)
+E=Point(33,79)
+F=Point(80,120)
+G=Point(120,80)
+H=Point(40,60)
+I=Point(62,53)
+J=Point(119,52)
+K=Point(120,20)
+L=Point(79,8)
+M=Point(37,49)
 
 
-
-
-
-# listP = [A,B,C,D,E,F,G,H,I,J,K,L,M]
-
-
+listP = [A,B,C,D,E,F,G,H,I,J,K,L,M]
 
 
 begin = time.time()
-testPoly = Polygon("HCM.geojson","file")
-# testPoly = Polygon(listP,"list")
+# testPoly = Polygon("HCM.geojson","file")
+testPoly = Polygon(listP,"list")
 testQT = PolygonQuadTree()
 # parallel starts here
 size = testQT.initPolygon(testPoly)
